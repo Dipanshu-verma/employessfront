@@ -13,8 +13,8 @@ const [token,settoken]  = useState(bool);
     <div className="App">
     <Navbar/>
      <Routes>
-      <Route path='/login' element={<Login settoken={settoken} />}  />
-      <Route path='/dashboard'  element={token ? <Dashboard  settoken={settoken}/> : <Navigate to="/login" />} />
+      <Route path='/' element={<Login settoken={settoken} />}  />
+      <Route path='/dashboard'  element={token ? <Dashboard  settoken={settoken}/> : <Navigate to="/" />} />
      </Routes>
 
     </div>
