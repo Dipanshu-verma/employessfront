@@ -17,8 +17,8 @@ import {
 } from '@chakra-ui/react';
 
 const Dashboard = ({settoken}) => {
-    const [employeeData, setEmployeeData] = useState({
-        id: null, // Add id to the state
+    const [newemploye, setnewemploye] = useState({
+        id: null,  
         firstName: '',
         lastName: '',
         email: '',
@@ -30,14 +30,17 @@ const Dashboard = ({settoken}) => {
 
   const [employees, setEmployees] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState(null);
+  const [idEdited, setidEdited] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
+    const pageSize = 5;
+    const[totalPages,setTotalpages]= useState(0)
   const [departmentFilter, setDepartmentFilter] = useState('');
+  const [selectedSort, setSelectedSort] = useState('');
 
-  const handleInputChange = (e) => {
+
+  const handleNewEmployee = (e) => {
     const { name, value } = e.target;
-    setEmployeeData((prevData) => ({
+    setnewemploye((prevData) => ({
       ...prevData,
       [name]: value,
     }));
@@ -45,9 +48,14 @@ const Dashboard = ({settoken}) => {
 
   const fetchAllEmployees = async () => {
     try {
-      const res = await fetch('http://localhost:3001/employees');
+      const res = await fetch(`https://employessjson.onrender.com/employees?_page=${currentPage}&_limit=5`);
       if (res.ok) {
         const data = await res.json();
+        const totalItems = res.headers.get('X-Total-Count');
+        const totalPage = Math.ceil(totalItems / pageSize);
+        setTotalpages(totalPage)
+
+        
         setEmployees(data);
       } else {
         console.error('Error fetching employees');
@@ -58,47 +66,59 @@ const Dashboard = ({settoken}) => {
   };
 
   
-  const filterEmployeesByDepartment = (val) => {
-    
-    
-    return employees.filter((employee) => employee.department === val);
-  };
-  
-  const fetchEmployees = (val) => {
+ 
+  const fetchEmployees = async(val) => {
     setDepartmentFilter(val);
-    const filteredEmployees = filterEmployeesByDepartment(val);
-    setEmployees(filteredEmployees);
+     
+    try {
+      const res = await fetch(`https://employessjson.onrender.com/employees?_page=${currentPage}&_limit=5&department=${val}`);
+      if (res.ok) {
+        const data = await res.json();
+        const totalItems = res.headers.get('X-Total-Count');
+        const totalPage = Math.ceil(totalItems / pageSize);
+        setTotalpages(totalPage)
+        console.log(`Total Pages: ${totalPages}`);
+        setEmployees(data);
+      } else {
+        console.error('Error fetching employees');
+      }
+    } catch (error) {
+      console.error('Error fetching employees', error);
+    }
+
+    
   };
   
   
   
   useEffect(() => {
     fetchAllEmployees();
-  }, []); 
+  }, [currentPage]); 
+
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     const maxId = employees.reduce((max, employee) => Math.max(max, employee.id), 0);
 
-    if (editId !== null) {
+    if (idEdited !== null) {
        
       try {
-        const res = await fetch(`http://localhost:3001/employees/${editId}`, {
+        const res = await fetch(`https://employessjson.onrender.com/employees/${idEdited}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(employeeData),
+          body: JSON.stringify(newemploye),
         });
 
         if (res.ok) {
           const updatedEmployees = employees.map((employee) =>
-            employee.id === editId ? employeeData : employee
+            employee.id === idEdited ? newemploye : employee
           );
           setEmployees(updatedEmployees);
-          setEditId(null);
+          setidEdited(null);
           setShowForm(false);
-          setEmployeeData({
+          setnewemploye({
             id: null,
             firstName: '',
             lastName: '',
@@ -117,19 +137,19 @@ const Dashboard = ({settoken}) => {
        
       const newEmployeeId = maxId + 1;
       try {
-        const res = await fetch('http://localhost:3001/employees', {
+        const res = await fetch('https://employessjson.onrender.com/employees', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ ...employeeData, id: newEmployeeId }),
+          body: JSON.stringify({ ...newemploye, id: newEmployeeId }),
         });
 
         if (res.ok) {
           const data = await res.json();
-          setEmployees([...employees, data]);
+         fetchAllEmployees();
           setShowForm(false);
-          setEmployeeData({
+          setnewemploye({
             id: null,
             firstName: '',
             lastName: '',
@@ -146,21 +166,24 @@ const Dashboard = ({settoken}) => {
       }
     }
   };
+
   const handleEditClick = (employee) => {
     setShowForm(true);
-    setEditId(employee.id);
-    setEmployeeData(employee);
+    setidEdited(employee.id);
+    setnewemploye(employee);
   };
 
-  const handleDeleteClick = async (employeeId) => {
+
+  //Deleteting =---------------------
+  const handleDelete = async (employeeId) => {
     try {
-      const res = await fetch(`http://localhost:3001/employees/${employeeId}`, {
+      const res = await fetch(`https://employessjson.onrender.com/employees/${employeeId}`, {
         method: 'DELETE',
       });
 
       if (res.ok) {
         const updatedEmployees = employees.filter((employee) => employee.id !== employeeId);
-        setEmployees(updatedEmployees);
+        fetchAllEmployees();
       } else {
         console.error('Error deleting employee');
       }
@@ -169,12 +192,34 @@ const Dashboard = ({settoken}) => {
     }
   };
 
-  const totalPages = Math.ceil(employees.length / pageSize);
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const visibleEmployees = employees.slice(startIndex, endIndex);
-console.log(visibleEmployees);
 
+//sorting -----------------------
+  const handleSortChange = async(event) => {
+    setSelectedSort(event.target.value);
+
+    try {
+      const res = await fetch(`https://employessjson.onrender.com/employees?_page=${currentPage}&_limit=5&_sort=salary&_order=${event.target.value}`);
+      if (res.ok) {
+        const data = await res.json();
+        const totalItems = res.headers.get('X-Total-Count');
+        const totalPage = Math.ceil(totalItems / pageSize);
+        setTotalpages(totalPage)
+        console.log(`Total Pages: ${totalPages}`);
+        setEmployees(data);
+      } else {
+        console.error('Error fetching employees');
+      }
+    } catch (error) {
+      console.error('Error fetching employees', error);
+    }
+    
+  };
+
+  const sortOptions = [
+    { value: 'asc', label: 'Low-to-High' },
+    { value: 'desc', label: 'High-to-Low' },
+  ];
+   
   return (
     <ChakraProvider>
       <Box p={8} width="800px" >
@@ -199,19 +244,7 @@ console.log(visibleEmployees);
             Log Out
           </Button>
         </Box>
-        <FormControl mb={4}>
-  <FormLabel>Filter by Department</FormLabel>
-  <Select
-    name="departmentFilter"
-    value={departmentFilter}
-    onChange={(e) => fetchEmployees(e.target.value)}
-  >
-    <option value="">All Departments</option>
-    <option value="Tech">Tech</option>
-    <option value="Marketing">Marketing</option>
-    <option value="Operations">Operations</option>
-  </Select>
-</FormControl>
+        
 
         {showForm && (
           <form onSubmit={handleFormSubmit}>
@@ -221,8 +254,8 @@ console.log(visibleEmployees);
           <Input
             type="text"
             name="firstName"
-            value={employeeData.firstName}
-            onChange={handleInputChange}
+            value={newemploye.firstName}
+            onChange={handleNewEmployee}
             required
           />
         </FormControl>
@@ -232,8 +265,8 @@ console.log(visibleEmployees);
           <Input
             type="text"
             name="lastName"
-            value={employeeData.lastName}
-            onChange={handleInputChange}
+            value={newemploye.lastName}
+            onChange={handleNewEmployee}
             required
           />
         </FormControl>
@@ -243,8 +276,8 @@ console.log(visibleEmployees);
           <Input
             type="email"
             name="email"
-            value={employeeData.email}
-            onChange={handleInputChange}
+            value={newemploye.email}
+            onChange={handleNewEmployee}
             required
           />
         </FormControl>
@@ -253,14 +286,14 @@ console.log(visibleEmployees);
           <FormLabel>Department</FormLabel>
           <Select
             name="department"
-            value={employeeData.department}
-            onChange={handleInputChange}
+            value={newemploye.department}
+            onChange={handleNewEmployee}
             required
           >
             <option value="">Select Department</option>
-            <option value="Tech">Tech</option>
-            <option value="Marketing">Marketing</option>
-            <option value="Operations">Operations</option>
+            <option value="tech">Tech</option>
+            <option value="marketing">Marketing</option>
+            <option value="operations">Operations</option>
           </Select>
         </FormControl>
 
@@ -269,8 +302,8 @@ console.log(visibleEmployees);
           <Input
             type="number"
             name="salary"
-            value={employeeData.salary}
-            onChange={handleInputChange}
+            value={newemploye.salary}
+            onChange={handleNewEmployee}
             required
           />
         </FormControl>
@@ -280,8 +313,8 @@ console.log(visibleEmployees);
               <Input
                 type="date"
                 name="date"
-                value={employeeData.date}
-                onChange={handleInputChange}
+                value={newemploye.date}
+                onChange={handleNewEmployee}
                 required
               />
             </FormControl>
@@ -291,7 +324,35 @@ console.log(visibleEmployees);
             </Button>
           </form>
         )}
-
+        <Box display="flex"  gap="1rem" alignItems="center">
+        <FormControl mb={4}>
+  <FormLabel>Filter by Department</FormLabel>
+  <Select
+    name="departmentFilter"
+    value={departmentFilter}
+    onChange={(e) => fetchEmployees(e.target.value)}
+  >
+    <option value="">All Departments</option>
+    <option value="tech">Tech</option>
+    <option value="marketing">Marketing</option>
+    <option value="operations">Operations</option>
+  </Select>
+</FormControl>
+  <Box mt={4} display="flex" justifyContent="center">
+      <Select
+        placeholder="Sort by Salary"
+        value={selectedSort}
+        onChange={handleSortChange}
+        width="200px"
+      >
+        {sortOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
+    </Box>
+    </Box>
         <Table variant="simple" colorScheme="teal">
           <Thead>
             <Tr>
@@ -306,7 +367,7 @@ console.log(visibleEmployees);
             </Tr>
           </Thead>
           <Tbody>
-            {visibleEmployees.map((employee, index) => (
+            {employees.map((employee, index) => (
               <Tr key={index}>
                 <Td>{index+1}</Td>
                 <Td>{employee.firstName}</Td>
@@ -321,7 +382,7 @@ console.log(visibleEmployees);
                   </Button>
                 </Td>
                 <Td>
-                  <Button size="sm" colorScheme="red" variant="outline"  onClick={() => handleDeleteClick(employee.id)}>
+                  <Button size="sm" colorScheme="red" variant="outline"  onClick={() => handleDelete(employee.id)}>
                     Delete
                   </Button>
                 </Td>
@@ -333,8 +394,8 @@ console.log(visibleEmployees);
           <Button
             mx={2}
             colorScheme="teal"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage((prevPage) => prevPage - 1)}
+            disabled={currentPage == 1}
+            onClick={() => setCurrentPage((prevPage) => currentPage!==1?prevPage - 1:1)}
           >
             Previous
           </Button>
@@ -355,8 +416,8 @@ console.log(visibleEmployees);
           <Button
             mx={2}
             colorScheme="teal"
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage((prevPage) => prevPage + 1)}
+            disabled={currentPage === (totalPages)}
+            onClick={() => setCurrentPage((prevPage) => currentPage!==totalPages?prevPage + 1:currentPage)}
           >
             Next
           </Button>
